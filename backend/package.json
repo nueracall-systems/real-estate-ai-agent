@@ -1,0 +1,28 @@
+{
+  "name": "whatsapp-ai-sales-backend",
+  "version": "1.0.0",
+  "description": "WhatsApp AI Sales Agent - Backend (Baileys + Groq + Supabase)",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.9",
+    "@supabase/supabase-js": "^2.45.4",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "groq-sdk": "^0.7.0",
+    "qrcode": "^1.5.4",
+    "multer": "^1.4.5-lts.1",
+    "csv-parse": "^5.5.6",
+    "pino": "^9.4.0",
+    "node-cron": "^3.0.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

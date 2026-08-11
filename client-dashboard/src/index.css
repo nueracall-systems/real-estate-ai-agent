@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Poppins', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================
+   Toggled by adding/removing the `dark` class on <html> (see
+   ThemeToggle.jsx). Rather than editing every page's Tailwind
+   classes individually, we override the common utility classes
+   used throughout the app whenever `.dark` is active - this
+   re-themes the whole dashboard from one place.
+   ============================================================ */
+.dark body,
+.dark #root {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+.dark .bg-cream-50 { background-color: #0f172a !important; }
+.dark .bg-cream-100 { background-color: #1e293b !important; }
+.dark .bg-white { background-color: #1e293b !important; }
+
+.dark .border-cream-100,
+.dark .border-cream-200 { border-color: #334155 !important; }
+
+.dark .text-gray-800 { color: #f1f5f9 !important; }
+.dark .text-gray-700 { color: #e2e8f0 !important; }
+.dark .text-gray-600 { color: #cbd5e1 !important; }
+.dark .text-gray-500 { color: #94a3b8 !important; }
+.dark .text-gray-400 { color: #64748b !important; }
+.dark .text-gray-300 { color: #475569 !important; }
+
+.dark .bg-indigo-50 { background-color: #1e2a4a !important; }
+.dark .bg-indigo-100 { background-color: #26325c !important; }
+.dark .text-indigo-700,
+.dark .text-indigo-600,
+.dark .text-indigo-800,
+.dark .text-indigo-900 { color: #a5b4fc !important; }
+
+.dark .bg-accent-50 { background-color: #3a2c14 !important; }
+.dark .bg-accent-100 { background-color: #4a3a1a !important; }
+.dark .text-accent-700,
+.dark .text-accent-600 { color: #fbbf24 !important; }
+
+.dark .bg-sky-50 { background-color: #16324a !important; }
+.dark .text-sky-700 { color: #7dd3fc !important; }
+.dark .bg-emerald-50 { background-color: #143a2e !important; }
+.dark .text-emerald-700 { color: #6ee7b7 !important; }
+.dark .bg-violet-50 { background-color: #2a1e4a !important; }
+.dark .text-violet-700 { color: #c4b5fd !important; }
+.dark .bg-amber-50 { background-color: #3a2c14 !important; }
+.dark .text-amber-700 { color: #fcd34d !important; }
+.dark .bg-red-50 { background-color: #3a1414 !important; }
+.dark .text-red-700 { color: #fca5a5 !important; }
+.dark .bg-green-50 { background-color: #143a1e !important; }
+.dark .text-green-700 { color: #86efac !important; }
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important;
+}
+
+.dark table thead {
+  background-color: #1e293b !important;
+}
+.dark tr {
+  border-color: #334155 !important;
+}
