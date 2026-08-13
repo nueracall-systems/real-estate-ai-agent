@@ -56,6 +56,13 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'WhatsApp AI Real Estate Sales Agent API is running' });
 });
 
+// Dedicated lightweight endpoint for uptime/keep-alive pingers (cron-job.org,
+// UptimeRobot, etc). Deliberately tiny response so it's always fast and
+// never trips any response-size limits those services impose.
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', planRoutes);
@@ -111,7 +118,7 @@ async function resumeActiveSessions() {
   }
 }
 
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  logger.info(`Server running on port ${PORT} (listening on all network interfaces)`);
   resumeActiveSessions();
 });
