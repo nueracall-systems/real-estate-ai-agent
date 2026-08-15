@@ -28,10 +28,25 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { title, property_type, bhk_type, location, price, area_gaj, description, images } = req.body;
+    const {
+      title, property_type, bhk_type, location, price, area_gaj, description, images,
+      listing_category, land_area_bigha, developer_name, possession_date, rera_number, total_units, amenities,
+    } = req.body;
     const { data, error } = await supabaseAdmin
       .from('properties')
-      .insert({ client_id: req.clientId, title, property_type, bhk_type, location, price, area_gaj: area_gaj || null, description, images: images || [] })
+      .insert({
+        client_id: req.clientId,
+        title, property_type, bhk_type, location, price,
+        area_gaj: area_gaj || null,
+        description, images: images || [],
+        listing_category: listing_category || 'unit',
+        land_area_bigha: land_area_bigha || null,
+        developer_name: developer_name || null,
+        possession_date: possession_date || null,
+        rera_number: rera_number || null,
+        total_units: total_units || null,
+        amenities: amenities || null,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -67,7 +82,8 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// Bulk upload via CSV: columns -> title, property_type, bhk_type, location, price, area_gaj, description
+// Bulk upload via CSV: columns -> title, property_type, bhk_type, location, price, area_gaj, description,
+// listing_category (unit/project), land_area_bigha, developer_name, possession_date, rera_number, total_units, amenities
 router.post('/bulk-upload', upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'CSV file required' });
@@ -84,6 +100,13 @@ router.post('/bulk-upload', upload.single('file'), async (req, res) => {
       area_gaj: r.area_gaj && r.area_gaj.trim() !== '' ? parseFloat(r.area_gaj) : null,
       description: r.description || '',
       images: [],
+      listing_category: r.listing_category && r.listing_category.trim() === 'project' ? 'project' : 'unit',
+      land_area_bigha: r.land_area_bigha && r.land_area_bigha.trim() !== '' ? parseFloat(r.land_area_bigha) : null,
+      developer_name: r.developer_name && r.developer_name.trim() !== '' ? r.developer_name.trim() : null,
+      possession_date: r.possession_date && r.possession_date.trim() !== '' ? r.possession_date.trim() : null,
+      rera_number: r.rera_number && r.rera_number.trim() !== '' ? r.rera_number.trim() : null,
+      total_units: r.total_units && r.total_units.trim() !== '' ? parseInt(r.total_units) : null,
+      amenities: r.amenities && r.amenities.trim() !== '' ? r.amenities.trim() : null,
     }));
 
     const { data, error } = await supabaseAdmin.from('properties').insert(rows).select();

@@ -35,9 +35,6 @@ export default function Conversations() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const nameInputRef = useRef(null);
-  const [mergePickerOpen, setMergePickerOpen] = useState(false);
-  const [mergeSearch, setMergeSearch] = useState('');
-  const [merging, setMerging] = useState(false);
 
   useEffect(() => {
     load();
@@ -57,8 +54,6 @@ export default function Conversations() {
   async function openThread(leadId) {
     setThreadLoading(true);
     setEditingName(false);
-    setMergePickerOpen(false);
-    setMergeSearch('');
     try {
       const res = await api.get(`/leads/${leadId}`);
       setSelected(res.data);
@@ -66,22 +61,6 @@ export default function Conversations() {
       console.error(err);
     }
     setThreadLoading(false);
-  }
-
-  async function mergeInto(targetLeadId, targetLabel) {
-    if (!window.confirm(`Merge this conversation into "${targetLabel}"? Their chat history will combine into one, and this entry will be removed.`)) return;
-    setMerging(true);
-    try {
-      await api.post(`/leads/${selected.lead.id}/merge`, { intoLeadId: targetLeadId });
-      setMergePickerOpen(false);
-      setSelected(null);
-      await load();
-      // Open the merged thread so the client immediately sees the combined chat
-      openThread(targetLeadId);
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to merge conversations');
-    }
-    setMerging(false);
   }
 
   function startEditName() {
@@ -171,7 +150,7 @@ export default function Conversations() {
             <p className="p-6 text-sm text-gray-400">Loading conversation...</p>
           ) : (
             <>
-              <div className="px-4 py-3 border-b border-cream-100 flex items-center gap-3 relative">
+              <div className="px-4 py-3 border-b border-cream-100 flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${avatarColorFor(selected.lead?.id)}`}>
                   {displayIdentity(selected.lead).charAt(0).toUpperCase()}
                 </div>
@@ -195,53 +174,6 @@ export default function Conversations() {
                     </button>
                   )}
                   <p className="text-xs text-gray-400">{displaySubIdentity(selected.lead)}</p>
-                </div>
-                <div className="relative flex-shrink-0">
-                  <button
-                    onClick={() => setMergePickerOpen((v) => !v)}
-                    disabled={merging}
-                    className="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-50 text-indigo-700 hover:bg-indigo-100 whitespace-nowrap"
-                    title="Same customer showing up as a separate conversation? Merge them here."
-                  >
-                    {merging ? 'Merging...' : 'Merge with...'}
-                  </button>
-                  {mergePickerOpen && (
-                    <div className="absolute right-0 top-10 z-20 w-72 bg-white border border-cream-200 rounded-xl shadow-lg overflow-hidden">
-                      <div className="p-2 border-b border-cream-100">
-                        <input
-                          autoFocus
-                          value={mergeSearch}
-                          onChange={(e) => setMergeSearch(e.target.value)}
-                          placeholder="Search the other conversation..."
-                          className="w-full border border-cream-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
-                        />
-                      </div>
-                      <div className="max-h-56 overflow-y-auto">
-                        {list
-                          .filter((c) => c.lead_id !== selected.lead?.id)
-                          .filter((c) => {
-                            const q = mergeSearch.toLowerCase();
-                            return !q || displayIdentity(c).toLowerCase().includes(q) || c.phone?.includes(q);
-                          })
-                          .slice(0, 20)
-                          .map((c) => (
-                            <button
-                              key={c.lead_id}
-                              onClick={() => mergeInto(c.lead_id, displayIdentity(c))}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-cream-50 flex items-center gap-2"
-                            >
-                              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${avatarColorFor(c.lead_id)}`}>
-                                {displayIdentity(c).charAt(0).toUpperCase()}
-                              </span>
-                              <span className="truncate">{displayIdentity(c)}</span>
-                            </button>
-                          ))}
-                        {list.filter((c) => c.lead_id !== selected.lead?.id).length === 0 && (
-                          <p className="px-3 py-3 text-xs text-gray-400">No other conversations to merge with.</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">

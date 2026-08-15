@@ -1,26 +1,21 @@
 // Shared helper for showing a lead's identity consistently across every
 // page (Leads, Conversations, Appointments, Bulk Send, etc).
 //
-// - If we have a name, always show it.
-// - If phone looks like a real dialable number (Indian mobile with
-//   country code = 12 digits, e.g. 919876543210), show it.
-// - Otherwise it's a WhatsApp "lid" - an opaque privacy ID WhatsApp
-//   assigns instead of the real number for some contacts. Showing that
-//   raw 15-digit number looks like a bug, so we label it clearly instead.
+// - If we have a name, always show it (e.g. given via Quick Send / Bulk Send).
+// - Otherwise, always show the full number/ID exactly as WhatsApp gave it
+//   to us - whether that's a real phone number or a WhatsApp "lid"
+//   (privacy ID). Showing the real thing, always, is more useful to the
+//   client than guessing or hiding it behind a generic label.
 export function displayIdentity(entity) {
   const name = entity?.name;
   const phone = entity?.phone;
 
   if (name && name.trim()) return name.trim();
-  if (phone && phone.length <= 12) return phone;
-  return 'WhatsApp Contact (no name yet)';
+  if (phone) return phone;
+  return 'Unknown';
 }
 
-// Same idea, but for showing a secondary/subtitle line under the name -
-// returns the real phone if we have one, otherwise a short explanatory
-// note instead of the raw lid number.
+// Same idea, for a subtitle/secondary line - just the raw number.
 export function displaySubIdentity(entity) {
-  const phone = entity?.phone;
-  if (phone && phone.length <= 12) return phone;
-  return 'Number hidden by WhatsApp privacy - tap name to label this contact';
+  return entity?.phone || '';
 }

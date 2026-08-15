@@ -13,9 +13,54 @@ export default function BulkSend() {
   const [search, setSearch] = useState('');
   const fileRef = useRef();
 
+  const [templates, setTemplates] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [scheduleForm, setScheduleForm] = useState({ template_id: '', send_time: '10:00' });
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
   useEffect(() => {
     loadLeads();
+    loadTemplates();
+    loadSchedules();
   }, []);
+
+  async function loadTemplates() {
+    const res = await api.get('/templates');
+    setTemplates(res.data.templates || []);
+  }
+
+  async function loadSchedules() {
+    const res = await api.get('/scheduled-bulk-sends');
+    setSchedules(res.data.schedules || []);
+  }
+
+  async function createSchedule(e) {
+    e.preventDefault();
+    if (!scheduleForm.template_id) return alert('Pehle ek template select karo');
+    setSavingSchedule(true);
+    try {
+      await api.post('/scheduled-bulk-sends', {
+        template_id: scheduleForm.template_id,
+        send_time: `${scheduleForm.send_time}:00`,
+      });
+      setScheduleForm({ template_id: '', send_time: '10:00' });
+      loadSchedules();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to save schedule');
+    }
+    setSavingSchedule(false);
+  }
+
+  async function toggleSchedule(schedule) {
+    await api.patch(`/scheduled-bulk-sends/${schedule.id}`, { is_active: !schedule.is_active });
+    loadSchedules();
+  }
+
+  async function deleteSchedule(id) {
+    if (!window.confirm('Yeh daily auto-send schedule delete karna hai?')) return;
+    await api.delete(`/scheduled-bulk-sends/${id}`);
+    loadSchedules();
+  }
 
   async function loadLeads() {
     const res = await api.get('/leads');
@@ -142,6 +187,81 @@ export default function BulkSend() {
         >
           {sending ? 'Sending...' : `Send to Selected (${selected.size})`}
         </button>
+      </div>
+
+      {/* Daily Auto-Send using a Template */}
+      <div className="bg-white border border-cream-200 rounded-xl p-4 sm:p-5 mb-6">
+        <p className="font-medium text-gray-800 mb-1 text-sm">Daily Auto-Send (Template)</p>
+        <p className="text-xs text-gray-400 mb-4">
+          Ek template aur time set karo - us waqt AI har din apne aap sabhi leads ko wo message bhej dega, koi manual kaam nahi. Template Templates page se banao.
+        </p>
+
+        {templates.length === 0 ? (
+          <p className="text-sm text-gray-400">
+            Pehle ek template banao <a href="/templates" className="text-accent-600 underline">Templates page</a> pe, uske baad yahan schedule set kar sakte ho.
+          </p>
+        ) : (
+          <form onSubmit={createSchedule} className="flex flex-col sm:flex-row gap-3 items-start sm:items-end mb-4">
+            <div className="flex-1 w-full">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Template</label>
+              <select
+                value={scheduleForm.template_id}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, template_id: e.target.value })}
+                className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
+              >
+                <option value="">Select template...</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.title}</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-full sm:w-40">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Daily Time</label>
+              <input
+                type="time"
+                value={scheduleForm.send_time}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, send_time: e.target.value })}
+                className="w-full border border-cream-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={savingSchedule}
+              className="bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-indigo-900 font-medium px-5 py-2 rounded-lg text-sm w-full sm:w-auto"
+            >
+              {savingSchedule ? 'Saving...' : 'Add Schedule'}
+            </button>
+          </form>
+        )}
+
+        {schedules.length > 0 && (
+          <div className="space-y-2">
+            {schedules.map((s) => (
+              <div key={s.id} className="flex items-center justify-between gap-2 border border-cream-100 rounded-lg px-3 py-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">
+                    {s.message_templates?.title || 'Template deleted'} - roz {s.send_time?.slice(0, 5)} baje
+                  </p>
+                  <p className="text-xs text-gray-400">{s.is_active ? 'Active' : 'Paused'}</p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => toggleSchedule(s)}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium ${s.is_active ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}
+                  >
+                    {s.is_active ? 'Pause' : 'Resume'}
+                  </button>
+                  <button
+                    onClick={() => deleteSchedule(s.id)}
+                    className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-50 text-red-600"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Leads list */}

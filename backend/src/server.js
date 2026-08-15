@@ -11,6 +11,7 @@ import { supabaseAdmin } from './config/supabaseClient.js';
 import { logger } from './utils/logger.js';
 import { getProvider } from './whatsapp/whatsappProvider.js';
 import { handleIncomingMessage } from './services/messageHandler.js';
+import { startScheduledBulkSendCron } from './services/scheduledBulkSendCron.js';
 
 import authRoutes from './routes/authRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -25,6 +26,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import conversationRoutes from './routes/conversationRoutes.js';
 import whatsappRoutes from './routes/whatsappRoutes.js';
 import sendRoutes from './routes/sendRoutes.js';
+import scheduledBulkSendRoutes from './routes/scheduledBulkSendRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -76,6 +78,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/send', sendRoutes);
+app.use('/api/scheduled-bulk-sends', scheduledBulkSendRoutes);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
@@ -121,4 +124,5 @@ async function resumeActiveSessions() {
 app.listen(PORT, '0.0.0.0', () => {
   logger.info(`Server running on port ${PORT} (listening on all network interfaces)`);
   resumeActiveSessions();
+  startScheduledBulkSendCron();
 });

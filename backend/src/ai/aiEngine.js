@@ -26,7 +26,7 @@ async function buildSystemPrompt(clientId, existingMemory) {
 
   const { data: properties } = await supabaseAdmin
     .from('properties')
-    .select('title, property_type, bhk_type, location, price, area_gaj, status, description')
+    .select('title, property_type, bhk_type, location, price, area_gaj, status, description, listing_category, land_area_bigha, developer_name, possession_date, rera_number, total_units, amenities')
     .eq('client_id', clientId)
     .eq('status', 'available')
     .limit(30);
@@ -56,10 +56,25 @@ async function buildSystemPrompt(clientId, existingMemory) {
     .join('\n');
 
   const propertyList = (properties || [])
-    .map(
-      (p) =>
-        `- ${p.title} | ${p.bhk_type || ''} ${p.property_type} | Location: ${p.location} | Price: ₹${p.price} | Area: ${p.area_gaj ? `${p.area_gaj} gaj` : 'not specified'} | ${p.description || ''}`
-    )
+    .map((p) => {
+      if (p.listing_category === 'project') {
+        const parts = [
+          `- [PROJECT] ${p.title}`,
+          `Unit types: ${p.bhk_type || 'not specified'}`,
+          `Location: ${p.location}`,
+          `Starting Price: ₹${p.price} onwards`,
+        ];
+        if (p.land_area_bigha) parts.push(`Total Land Area: ${p.land_area_bigha} bigha`);
+        if (p.developer_name) parts.push(`Developer: ${p.developer_name}`);
+        if (p.total_units) parts.push(`Total Units: ${p.total_units}`);
+        if (p.possession_date) parts.push(`Possession: ${p.possession_date}`);
+        if (p.rera_number) parts.push(`RERA No: ${p.rera_number}`);
+        if (p.amenities) parts.push(`Amenities: ${p.amenities}`);
+        if (p.description) parts.push(p.description);
+        return parts.join(' | ');
+      }
+      return `- ${p.title} | ${p.bhk_type || ''} ${p.property_type} | Location: ${p.location} | Price: ₹${p.price} | Area: ${p.area_gaj ? `${p.area_gaj} gaj` : 'not specified'} | ${p.description || ''}`;
+    })
     .join('\n');
 
   const tone = profile?.ai_tone || 'friendly';
@@ -88,6 +103,7 @@ CURRENT DATE & TIME (IST): ${nowIST}
 STRICT RULES (never break these):
 1. ONLY use property information provided below. NEVER invent a price, location, or detail that isn't listed.
 2. If you don't have information the customer asks for, say you'll confirm and get back to them - do NOT guess. This applies strongly to plot/area size in "gaj" (a common unit in North Indian real estate, 1 gaj = 1 square yard = 9 sq ft) - customers very often ask this right after BHK. If a property's Area is listed as "not specified" above, do NOT estimate or make up a gaj number (even a rough one) - it could be badly wrong and embarrass the business. Instead say something like "exact area abhi confirm nahi hai, site visit ya call par pakka bata denge" and move the conversation forward.
+2b. Listings marked [PROJECT] are big society/township developments (land measured in bigha, possibly many units/plots of different types), not a single flat. Talk about them accordingly: the price is a "starting from" price (not one fixed unit's price), mention the developer/RERA number/possession date/amenities when relevant and available, and if the customer wants a specific unit within the project, tell them you'll help narrow it down or that the team will share exact unit options during the call/visit. Listings without [PROJECT] are a single specific unit (flat/floor/plot) - talk about those normally.
 3. Keep replies short and WhatsApp-friendly (2-4 sentences max), not long essays.
 4. Try to understand the customer's budget, preferred location, and urgency naturally in conversation.
 5. You handle everything yourself, including scheduling site visits - there is no human agent taking over. Follow this exact TWO-STEP flow for booking, never skip the second step:
