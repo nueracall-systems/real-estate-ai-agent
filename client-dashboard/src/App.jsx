@@ -11,6 +11,7 @@ import BulkSend from './pages/BulkSend.jsx';
 import EmergencyBlock from './pages/EmergencyBlock.jsx';
 import Appointments from './pages/Appointments.jsx';
 import Templates from './pages/Templates.jsx';
+import Questions from './pages/Questions.jsx';
 import Settings from './pages/Settings.jsx';
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
       <Route path="/emergency-block" element={<EmergencyBlock />} />
       <Route path="/appointments" element={<Appointments />} />
       <Route path="/templates" element={<Templates />} />
+      <Route path="/questions" element={<Questions />} />
       <Route path="/settings" element={<Settings />} />
     </Routes>
   );

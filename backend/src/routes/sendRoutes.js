@@ -28,6 +28,14 @@ router.post('/quick-send', async (req, res) => {
 
     const { data: clientRow } = await supabaseAdmin.from('clients').select('whatsapp_provider').eq('id', req.clientId).single();
     const provider = getProvider(clientRow?.whatsapp_provider || 'baileys');
+
+    if (provider.checkOnWhatsApp) {
+      const exists = await provider.checkOnWhatsApp(req.clientId, phone);
+      if (exists === false) {
+        return res.status(400).json({ error: `${phone} does not have WhatsApp - message was not sent.` });
+      }
+    }
+
     await provider.sendMessage(req.clientId, phone, message);
 
     if (lead) {
@@ -85,6 +93,38 @@ router.post('/bulk-send-existing', async (req, res) => {
 
     const result = await startBulkSendToLeads(req.clientId, leads, message);
     res.json({ ...result, message: `Bulk send started for ${leads.length} leads. Sending gradually to avoid WhatsApp bans - this may take a while.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get a specific bulk-send job's live status/results (for polling while it runs)
+router.get('/bulk-send-jobs/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bulk_send_jobs')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('client_id', req.clientId)
+      .single();
+    if (error) throw error;
+    res.json({ job: data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Recent bulk-send jobs for this client (most recent first)
+router.get('/bulk-send-jobs', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('bulk_send_jobs')
+      .select('*')
+      .eq('client_id', req.clientId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (error) throw error;
+    res.json({ jobs: data });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

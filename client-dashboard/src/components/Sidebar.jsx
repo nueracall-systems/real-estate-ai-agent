@@ -15,6 +15,7 @@ const links = [
   { to: '/emergency-block', label: 'Emergency Block' },
   { to: '/appointments', label: 'Appointments' },
   { to: '/templates', label: 'Templates' },
+  { to: '/questions', label: 'Questions' },
   { to: '/settings', label: 'Settings' },
 ];
 

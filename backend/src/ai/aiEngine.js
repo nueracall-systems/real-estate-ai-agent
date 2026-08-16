@@ -103,6 +103,9 @@ CURRENT DATE & TIME (IST): ${nowIST}
 STRICT RULES (never break these):
 1. ONLY use property information provided below. NEVER invent a price, location, or detail that isn't listed.
 2. If you don't have information the customer asks for, say you'll confirm and get back to them - do NOT guess. This applies strongly to plot/area size in "gaj" (a common unit in North Indian real estate, 1 gaj = 1 square yard = 9 sq ft) - customers very often ask this right after BHK. If a property's Area is listed as "not specified" above, do NOT estimate or make up a gaj number (even a rough one) - it could be badly wrong and embarrass the business. Instead say something like "exact area abhi confirm nahi hai, site visit ya call par pakka bata denge" and move the conversation forward.
+2c. Whenever you tell the customer you'll "confirm and get back" on something (per rule 2, or anything else you genuinely don't know), you MUST also end that reply with a hidden tag in EXACTLY this format on its own line:
+[[QUESTION: a clear, complete restatement of exactly what the customer wants to know]]
+   This routes the question to a real person who will answer it - without this tag, the customer's "I'll confirm and get back" promise goes nowhere and no one ever follows up, which is worse than not promising at all. Write the question clearly enough that someone with no other context could answer it correctly (e.g. "What is the exact plot area in gaj for the 3BHK listing in Sector 62?" not just "area"). Never show this bracket line to the customer. If you already asked this exact question earlier in this conversation and got no update yet (check memory below), don't tag it again - only tag it once per new unknown.
 2b. Listings marked [PROJECT] are big society/township developments (land measured in bigha, possibly many units/plots of different types), not a single flat. Talk about them accordingly: the price is a "starting from" price (not one fixed unit's price), mention the developer/RERA number/possession date/amenities when relevant and available, and if the customer wants a specific unit within the project, tell them you'll help narrow it down or that the team will share exact unit options during the call/visit. Listings without [PROJECT] are a single specific unit (flat/floor/plot) - talk about those normally.
 3. Keep replies short and WhatsApp-friendly (2-4 sentences max), not long essays.
 4. Try to understand the customer's budget, preferred location, and urgency naturally in conversation.
@@ -172,6 +175,25 @@ export function extractMemory(replyText) {
   if (!memory || memory.toLowerCase() === 'none yet') return { cleanText, memory: null };
 
   return { cleanText, memory };
+}
+
+/**
+ * Looks for the hidden [[QUESTION: ...]] tag the AI is instructed to add
+ * whenever it tells the customer it'll "confirm and get back" on
+ * something it doesn't know. Returns the extracted question (or null)
+ * and the reply text with the tag removed.
+ */
+export function extractQuestion(replyText) {
+  const tagRegex = /\[\[QUESTION:\s*([\s\S]*?)\s*\]\]/i;
+  const match = replyText.match(tagRegex);
+  const cleanText = replyText.replace(tagRegex, '').trim();
+
+  if (!match) return { cleanText, question: null };
+
+  const question = match[1].trim();
+  if (!question) return { cleanText, question: null };
+
+  return { cleanText, question };
 }
 
 /**

@@ -36,15 +36,16 @@ router.post('/', async (req, res) => {
       .from('properties')
       .insert({
         client_id: req.clientId,
-        title, property_type, bhk_type, location, price,
-        area_gaj: area_gaj || null,
+        title, property_type, bhk_type, location,
+        price: price !== '' && price != null ? parseFloat(price) : 0,
+        area_gaj: area_gaj !== '' && area_gaj != null ? parseFloat(area_gaj) : null,
         description, images: images || [],
         listing_category: listing_category || 'unit',
-        land_area_bigha: land_area_bigha || null,
+        land_area_bigha: land_area_bigha !== '' && land_area_bigha != null ? parseFloat(land_area_bigha) : null,
         developer_name: developer_name || null,
-        possession_date: possession_date || null,
+        possession_date: possession_date !== '' ? possession_date : null,
         rera_number: rera_number || null,
-        total_units: total_units || null,
+        total_units: total_units !== '' && total_units != null ? parseInt(total_units) : null,
         amenities: amenities || null,
       })
       .select()

@@ -2,20 +2,29 @@
 // page (Leads, Conversations, Appointments, Bulk Send, etc).
 //
 // - If we have a name, always show it (e.g. given via Quick Send / Bulk Send).
-// - Otherwise, always show the full number/ID exactly as WhatsApp gave it
-//   to us - whether that's a real phone number or a WhatsApp "lid"
-//   (privacy ID). Showing the real thing, always, is more useful to the
-//   client than guessing or hiding it behind a generic label.
+// - Otherwise, show the number - formatted nicely with country code
+//   (+91 XXXXX XXXXX) when it's a real Indian mobile number, or as-is if
+//   it's a WhatsApp "lid" (privacy ID) we can't format as a phone number.
+export function formatPhone(phone) {
+  if (!phone) return '';
+  // Indian mobile with country code: 91 + 10 digits = 12 digits total
+  if (/^91\d{10}$/.test(phone)) {
+    const national = phone.slice(2);
+    return `+91 ${national.slice(0, 5)} ${national.slice(5)}`;
+  }
+  return phone;
+}
+
 export function displayIdentity(entity) {
   const name = entity?.name;
   const phone = entity?.phone;
 
   if (name && name.trim()) return name.trim();
-  if (phone) return phone;
+  if (phone) return formatPhone(phone);
   return 'Unknown';
 }
 
-// Same idea, for a subtitle/secondary line - just the raw number.
+// Same idea, for a subtitle/secondary line - the formatted number.
 export function displaySubIdentity(entity) {
-  return entity?.phone || '';
+  return formatPhone(entity?.phone) || '';
 }

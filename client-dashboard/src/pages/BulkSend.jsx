@@ -12,6 +12,8 @@ export default function BulkSend() {
   const [result, setResult] = useState(null);
   const [search, setSearch] = useState('');
   const fileRef = useRef();
+  const [activeJob, setActiveJob] = useState(null);
+  const pollRef = useRef(null);
 
   const [templates, setTemplates] = useState([]);
   const [schedules, setSchedules] = useState([]);
@@ -125,6 +127,7 @@ export default function BulkSend() {
 
     setSending(true);
     setResult(null);
+    setActiveJob(null);
     try {
       const res = await api.post('/send/bulk-send-existing', {
         leadIds: Array.from(selected),
@@ -132,11 +135,33 @@ export default function BulkSend() {
       });
       setResult({ success: true, msg: res.data.message });
       setMessage('');
+      if (res.data.jobId) startPollingJob(res.data.jobId);
     } catch (err) {
       setResult({ success: false, msg: err.response?.data?.error || 'Failed to start bulk send' });
     }
     setSending(false);
   }
+
+  function startPollingJob(jobId) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await api.get(`/send/bulk-send-jobs/${jobId}`);
+        setActiveJob(res.data.job);
+        if (res.data.job?.status === 'completed') {
+          clearInterval(pollRef.current);
+        }
+      } catch (err) {
+        clearInterval(pollRef.current);
+      }
+    }, 3000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   const filteredLeads = leads.filter((l) => {
     const q = search.toLowerCase();
@@ -263,6 +288,34 @@ export default function BulkSend() {
           </div>
         )}
       </div>
+
+      {/* Delivery Report */}
+      {activeJob && (
+        <div className="bg-white border border-cream-200 rounded-xl p-4 sm:p-5 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-medium text-gray-800 text-sm">
+              Delivery Report {activeJob.status === 'running' ? '(Sending...)' : '(Complete)'}
+            </p>
+            <p className="text-xs text-gray-400">
+              {activeJob.sent_count} sent / {activeJob.failed_count} failed / {activeJob.total_recipients} total
+            </p>
+          </div>
+          <div className="max-h-56 overflow-y-auto space-y-1.5">
+            {(activeJob.results || []).map((r, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 text-sm border-b border-cream-100 pb-1.5 last:border-0">
+                <span className="text-gray-700 truncate">{r.name || r.phone}</span>
+                {r.status === 'sent' ? (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 flex-shrink-0">Sent</span>
+                ) : (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600 flex-shrink-0" title={r.reason}>
+                    Failed - {r.reason}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Leads list */}
       <div className="bg-white border border-cream-200 rounded-xl overflow-hidden">

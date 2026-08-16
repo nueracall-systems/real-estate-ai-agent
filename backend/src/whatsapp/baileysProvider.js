@@ -355,6 +355,25 @@ export async function sendMessage(clientId, toNumber, text, jidType = 'phone') {
   return true;
 }
 
+/**
+ * Checks whether a phone number is actually registered on WhatsApp,
+ * using Baileys' built-in lookup. Used by bulk send so we can tell the
+ * client exactly why a message didn't go out (number not on WhatsApp)
+ * instead of just a generic failure.
+ * Returns true/false, or null if we couldn't check (e.g. not connected).
+ */
+export async function checkOnWhatsApp(clientId, phoneNumber) {
+  const sock = activeSockets.get(clientId);
+  if (!sock) return null;
+  try {
+    const results = await sock.onWhatsApp(phoneNumber);
+    return Array.isArray(results) && results.length > 0 && results[0]?.exists === true;
+  } catch (err) {
+    logger.warn(`onWhatsApp check failed for ${phoneNumber} (client ${clientId}):`, err.message);
+    return null; // unknown - don't block the send attempt on an inconclusive check
+  }
+}
+
 export function getStatus(clientId) {
   const sock = activeSockets.get(clientId);
   return { connected: !!sock, provider: 'baileys' };

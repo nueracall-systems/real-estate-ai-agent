@@ -13,7 +13,7 @@
 // ============================================================
 
 import { supabaseAdmin } from '../config/supabaseClient.js';
-import { generateReply, scoreLead, extractAppointment, extractMemory } from '../ai/aiEngine.js';
+import { generateReply, scoreLead, extractAppointment, extractMemory, extractQuestion } from '../ai/aiEngine.js';
 import { getProvider } from '../whatsapp/whatsappProvider.js';
 import { enqueue } from '../utils/queue.js';
 import { logger } from '../utils/logger.js';
@@ -172,9 +172,12 @@ async function processMessage(clientId, fromNumber, text, jidType = 'phone') {
     // ends its reply with a hidden [[APPOINTMENT: ...]] tag. Strip that
     // tag out of what the customer actually sees on WhatsApp.
     const { cleanText: afterAppointment, scheduledTime } = extractAppointment(rawReply);
+    // AI may have flagged a question it couldn't answer - strip the tag
+    // too, the customer never sees it.
+    const { cleanText: afterQuestion, question: clientQuestion } = extractQuestion(afterAppointment);
     // AI also maintains a running memory summary via a hidden [[MEMORY: ...]]
     // tag on every reply - extract it and strip it too before sending.
-    const { cleanText: replyText, memory: updatedMemory } = extractMemory(afterAppointment);
+    const { cleanText: replyText, memory: updatedMemory } = extractMemory(afterQuestion);
 
     if (updatedMemory && updatedMemory !== lead.ai_memory) {
       await supabaseAdmin.from('leads').update({ ai_memory: updatedMemory }).eq('id', lead.id);
@@ -219,6 +222,28 @@ async function processMessage(clientId, fromNumber, text, jidType = 'phone') {
           'New Hot Lead! 🔥',
           `${lead.name || fromNumber} lagta hai ready to close. Turant follow-up karein.`
         );
+      }
+    }
+
+    // 8c. AI flagged something it couldn't answer - log it so the client
+    // can answer from the dashboard. Once they do, the answer gets sent
+    // to this customer automatically (see questionRoutes.js).
+    if (clientQuestion) {
+      try {
+        await supabaseAdmin.from('client_questions').insert({
+          client_id: clientId,
+          lead_id: lead.id,
+          question_text: clientQuestion,
+          status: 'pending',
+        });
+        await notifyClient(
+          clientId,
+          'question_pending',
+          'Customer Question Needs Your Answer',
+          `${lead.name || fromNumber} ne kuch poocha jo AI ko pata nahi tha: "${clientQuestion}"`
+        );
+      } catch (err) {
+        logger.error(`Failed to log client question for lead ${lead.id}:`, err.message);
       }
     }
 

@@ -27,6 +27,7 @@ import conversationRoutes from './routes/conversationRoutes.js';
 import whatsappRoutes from './routes/whatsappRoutes.js';
 import sendRoutes from './routes/sendRoutes.js';
 import scheduledBulkSendRoutes from './routes/scheduledBulkSendRoutes.js';
+import questionRoutes from './routes/questionRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,6 +80,7 @@ app.use('/api/conversations', conversationRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/send', sendRoutes);
 app.use('/api/scheduled-bulk-sends', scheduledBulkSendRoutes);
+app.use('/api/questions', questionRoutes);
 
 // 404 handler
 app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
