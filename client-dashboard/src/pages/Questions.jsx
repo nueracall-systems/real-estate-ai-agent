@@ -50,7 +50,7 @@ export default function Questions() {
     <Layout>
       <h1 className="text-xl sm:text-2xl font-bold text-indigo-900 mb-2">Questions</h1>
       <p className="text-gray-500 text-sm mb-6">
-        Jab AI kisi customer se "confirm karke batata hoon" bole, wo sawaal yahan aata hai. Jawab do - turant customer ko WhatsApp par chala jaayega, aur AI usko hamesha ke liye yaad rakhega.
+        When the AI tells a customer 'I will confirm and get back to you,' that question comes here. Provide the answer—it will be sent to the customer on WhatsApp immediately, and the AI will remember it forever.
       </p>
 
       <div className="flex gap-2 mb-4">
@@ -73,7 +73,7 @@ export default function Questions() {
           <p className="text-sm text-gray-400">Loading...</p>
         ) : list.length === 0 ? (
           <p className="text-sm text-gray-400">
-            {tab === 'pending' ? 'Koi pending question nahi hai abhi.' : 'Koi answered question nahi hai abhi.'}
+            {tab === 'pending' ? 'There are no pending questions right now' : 'There are no answered questions right now'}
           </p>
         ) : (
           list.map((q) => (
