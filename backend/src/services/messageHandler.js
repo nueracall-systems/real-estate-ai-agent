@@ -18,6 +18,7 @@ import { getProvider } from '../whatsapp/whatsappProvider.js';
 import { enqueue } from '../utils/queue.js';
 import { logger } from '../utils/logger.js';
 import { isInEmergencyBlock } from './emergencyBlockService.js';
+import { persistResolvedLid } from '../utils/leadIdentity.js';
 
 const MAX_AI_REPLIES_PER_DAY = parseInt(process.env.MAX_AI_REPLIES_PER_CLIENT_PER_DAY || '300');
 
@@ -191,7 +192,8 @@ async function processMessage(clientId, fromNumber, text, jidType = 'phone') {
       .single();
 
     const provider = getProvider(clientRow?.whatsapp_provider || 'baileys');
-    await provider.sendMessage(clientId, sendTarget, replyText, lead.jid_type || jidType);
+    const sendResult = await provider.sendMessage(clientId, sendTarget, replyText, lead.jid_type || jidType);
+    await persistResolvedLid(lead.id, lead.whatsapp_lid, sendResult);
 
     // 8. Save AI reply + update usage tracking + lead score
     await supabaseAdmin.from('conversations').insert({

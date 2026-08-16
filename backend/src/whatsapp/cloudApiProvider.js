@@ -57,7 +57,7 @@ export async function sendMessage(clientId, toNumber, text, jidType = 'phone') {
     logger.error('Cloud API send failed:', data);
     throw new Error(data?.error?.message || 'Failed to send via Cloud API');
   }
-  return data;
+  return { success: true, resolvedJidType: 'phone', resolvedLid: null, raw: data };
 }
 
 export function getStatus(clientId) {

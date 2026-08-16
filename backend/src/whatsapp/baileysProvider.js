@@ -224,6 +224,8 @@ export async function startSession(clientId, callbacks = {}) {
         if (!msg.message) continue;
         if (msg.key.remoteJid === 'status@broadcast') continue; // ignore status updates
         if (msg.key.remoteJid?.endsWith('@g.us')) continue; // ignore group messages (MVP: 1-on-1 only)
+        if (msg.key.remoteJid?.endsWith('@newsletter')) continue; // ignore WhatsApp Channel/Newsletter updates - not a real customer
+        if (msg.key.remoteJid?.endsWith('@broadcast')) continue; // ignore other broadcast-list message types
 
         // Dedupe: Baileys/WhatsApp occasionally deliver the exact same
         // message twice. Skip anything we've already handled.
@@ -334,12 +336,46 @@ export async function sendMessage(clientId, toNumber, text, jidType = 'phone') {
   // messaged using an @lid JID, not @s.whatsapp.net - using the wrong suffix
   // silently fails to deliver (no error, message just never arrives).
   let jid;
+  let resolvedJidType = jidType;
+  let resolvedLid = null;
+
   if (toNumber.includes('@lid') || toNumber.includes('@s.whatsapp.net')) {
     jid = toNumber;
   } else if (jidType === 'lid') {
     jid = `${toNumber}@lid`;
   } else {
-    jid = `${toNumber}@s.whatsapp.net`;
+    // We're about to message a plain phone number for the first time in
+    // this send. PROACTIVELY resolve the real JID via WhatsApp's own
+    // lookup before sending. If this contact has WhatsApp's privacy mode
+    // on, WhatsApp itself tells us their real messaging JID is a "@lid"
+    // one - we lock that in immediately, so when they reply, it already
+    // matches this exact lead. This is what prevents a second, nameless,
+    // duplicate conversation from ever appearing for an outbound-started
+    // chat, instead of trying to guess/merge after the fact.
+    try {
+      const results = await sock.onWhatsApp(toNumber);
+      const resolved = Array.isArray(results) && results[0];
+      if (resolved?.exists && resolved.jid) {
+        jid = resolved.jid;
+        if (jid.endsWith('@lid')) {
+          resolvedJidType = 'lid';
+          resolvedLid = jid.replace('@lid', '');
+        } else {
+          resolvedJidType = 'phone';
+        }
+      } else {
+        // WhatsApp says this number doesn't exist on WhatsApp at all -
+        // still attempt the plain send so the caller's own error handling
+        // (or the checkOnWhatsApp pre-check in bulk send) surfaces this
+        // clearly, rather than silently guessing.
+        jid = `${toNumber}@s.whatsapp.net`;
+      }
+    } catch (err) {
+      // Lookup failed (rate limit, transient network issue, etc) - fall
+      // back to the plain phone JID rather than blocking the send entirely.
+      logger.warn(`onWhatsApp lookup failed for ${toNumber} (client ${clientId}), sending to plain JID as fallback:`, err.message);
+      jid = `${toNumber}@s.whatsapp.net`;
+    }
   }
 
   // Anti-ban: random delay + typing indicator before sending
@@ -352,7 +388,7 @@ export async function sendMessage(clientId, toNumber, text, jidType = 'phone') {
   await sock.sendPresenceUpdate('paused', jid);
 
   await sock.sendMessage(jid, { text });
-  return true;
+  return { success: true, resolvedJidType, resolvedLid };
 }
 
 /**

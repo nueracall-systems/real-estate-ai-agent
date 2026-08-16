@@ -15,6 +15,7 @@ import { supabaseAdmin } from '../config/supabaseClient.js';
 import { getProvider } from '../whatsapp/whatsappProvider.js';
 import { humanDelay } from '../utils/delay.js';
 import { logger } from '../utils/logger.js';
+import { persistResolvedLid } from '../utils/leadIdentity.js';
 
 const MIN_GAP = parseInt(process.env.MIN_BULK_GAP_MS || '5000');
 const MAX_GAP = parseInt(process.env.MAX_BULK_GAP_MS || '15000');
@@ -83,7 +84,8 @@ export async function startBulkSendToLeads(clientId, leads, messageTemplate) {
         }
 
         const personalizedMessage = messageTemplate.replace(/{{\s*name\s*}}/gi, lead.name || 'there');
-        await provider.sendMessage(clientId, sendTarget, personalizedMessage, lead.jid_type || 'phone');
+        const sendResult = await provider.sendMessage(clientId, sendTarget, personalizedMessage, lead.jid_type || 'phone');
+        await persistResolvedLid(lead.id, lead.whatsapp_lid, sendResult);
 
         await supabaseAdmin.from('conversations').insert({
           lead_id: lead.id,
@@ -165,7 +167,8 @@ export async function startBulkSend(clientId, recipients, messageTemplate) {
           .eq('phone', recipient.phone)
           .single();
 
-        await provider.sendMessage(clientId, recipient.phone, personalizedMessage);
+        const sendResult = await provider.sendMessage(clientId, recipient.phone, personalizedMessage);
+        if (lead) await persistResolvedLid(lead.id, null, sendResult);
 
         if (lead) {
           await supabaseAdmin.from('conversations').insert({

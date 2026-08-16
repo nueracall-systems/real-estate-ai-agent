@@ -9,6 +9,7 @@ import { supabaseAdmin } from '../config/supabaseClient.js';
 import { requireAuth, requireClient } from '../middleware/authMiddleware.js';
 import { getProvider } from '../whatsapp/whatsappProvider.js';
 import { startBulkSend, startBulkSendToLeads } from '../services/bulkSendService.js';
+import { persistResolvedLid } from '../utils/leadIdentity.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -36,7 +37,8 @@ router.post('/quick-send', async (req, res) => {
       }
     }
 
-    await provider.sendMessage(req.clientId, phone, message);
+    const sendResult = await provider.sendMessage(req.clientId, phone, message);
+    if (lead) await persistResolvedLid(lead.id, null, sendResult);
 
     if (lead) {
       await supabaseAdmin.from('conversations').insert({

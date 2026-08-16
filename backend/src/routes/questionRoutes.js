@@ -13,6 +13,7 @@ import express from 'express';
 import { supabaseAdmin } from '../config/supabaseClient.js';
 import { requireAuth, requireClient } from '../middleware/authMiddleware.js';
 import { getProvider } from '../whatsapp/whatsappProvider.js';
+import { persistResolvedLid } from '../utils/leadIdentity.js';
 
 const router = express.Router();
 router.use(requireAuth, requireClient);
@@ -62,7 +63,8 @@ router.post('/:id/answer', async (req, res) => {
 
     // Send the answer to the customer, phrased naturally
     const messageToCustomer = answer.trim();
-    await provider.sendMessage(req.clientId, sendTarget, messageToCustomer, lead.jid_type || 'phone');
+    const sendResult = await provider.sendMessage(req.clientId, sendTarget, messageToCustomer, lead.jid_type || 'phone');
+    await persistResolvedLid(lead.id, lead.whatsapp_lid, sendResult);
 
     await supabaseAdmin.from('conversations').insert({
       lead_id: lead.id,

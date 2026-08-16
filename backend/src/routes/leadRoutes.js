@@ -8,6 +8,7 @@ import { parse } from 'csv-parse/sync';
 import { supabaseAdmin } from '../config/supabaseClient.js';
 import { requireAuth, requireClient } from '../middleware/authMiddleware.js';
 import { getProvider } from '../whatsapp/whatsappProvider.js';
+import { persistResolvedLid } from '../utils/leadIdentity.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -86,7 +87,8 @@ router.post('/:id/reply', async (req, res) => {
 
     const provider = getProvider(lead.clients?.whatsapp_provider || 'baileys');
     const sendTarget = lead.jid_type === 'lid' ? (lead.whatsapp_lid || lead.phone) : lead.phone;
-    await provider.sendMessage(req.clientId, sendTarget, message, lead.jid_type || 'phone');
+    const sendResult = await provider.sendMessage(req.clientId, sendTarget, message, lead.jid_type || 'phone');
+    await persistResolvedLid(lead.id, lead.whatsapp_lid, sendResult);
 
     const { data: conv } = await supabaseAdmin
       .from('conversations')
