@@ -9,7 +9,7 @@
     "dev": "nodemon src/server.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "6.7.9",
+    "baileys": "6.17.16",
     "@supabase/supabase-js": "^2.45.4",
     "express": "^4.19.2",
     "cors": "^2.8.5",

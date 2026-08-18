@@ -24,7 +24,7 @@ import { useSupabaseAuthState, clearSupabaseAuthState } from './supabaseAuthStat
 // some are pure ESM), which breaks a plain `import`/`require`. This tries
 // dynamic import first (works for both, since Node wraps CJS transparently)
 // and pulls whichever shape actually has the functions we need.
-const baileysNamespace = await import('@whiskeysockets/baileys');
+const baileysNamespace = await import('baileys');
 const baileysDefault = baileysNamespace.default ?? baileysNamespace;
 
 function pick(name) {
@@ -37,12 +37,13 @@ const makeWASocket =
   pick('default');
 const DisconnectReason = pick('DisconnectReason');
 const fetchLatestBaileysVersion = pick('fetchLatestBaileysVersion');
+const downloadHistory = pick('downloadHistory');
 
 if (typeof makeWASocket !== 'function') {
   const require = createRequire(import.meta.url);
   let installedVersion = 'unknown';
   try {
-    installedVersion = require('@whiskeysockets/baileys/package.json').version;
+    installedVersion = require('baileys/package.json').version;
   } catch (e) {
     /* ignore */
   }
@@ -51,7 +52,7 @@ if (typeof makeWASocket !== 'function') {
       `Top-level keys: [${Object.keys(baileysNamespace).join(', ')}], ` +
       `default keys: [${baileysDefault && typeof baileysDefault === 'object' ? Object.keys(baileysDefault).join(', ') : typeof baileysDefault}]. ` +
       `Fix: delete node_modules and package-lock.json, then run "npm install" again ` +
-      `to get the pinned version (6.7.9) from package.json.`
+      `to get the pinned version (6.17.16) from package.json.`
   );
 }
 
@@ -95,6 +96,57 @@ function alreadyProcessed(clientId, msgId) {
  * Starts (or resumes) a WhatsApp session for a client.
  * callbacks: { onQr(qrDataUrl), onReady(), onMessage(fromNumber, text) }
  */
+/**
+ * WhatsApp periodically sends a "history sync" protocol message that
+ * includes a real phone-number <-> lid mapping table for our contacts
+ * (WhatsApp's own data, not a guess). Baileys decodes this internally
+ * but doesn't expose this specific field through its public events, so
+ * we independently download+decode the same notification ourselves
+ * using Baileys' exported downloadHistory() helper, and cache every
+ * mapping we see. This is what lets us show a real phone number (and
+ * match an existing saved name) for a lid contact - including a
+ * brand-new inbound contact we've never messaged first.
+ */
+async function captureLidMappingsFromHistorySync(clientId, historySyncNotification) {
+  if (!downloadHistory) return;
+
+  const syncData = await downloadHistory(historySyncNotification, {});
+  const mappings = syncData?.phoneNumberToLidMappings || [];
+  if (!mappings.length) return;
+
+  logger.info(`Client ${clientId}: captured ${mappings.length} phone<->lid mapping(s) from history sync.`);
+
+  for (const m of mappings) {
+    const phone = m.pnJid?.replace('@s.whatsapp.net', '');
+    const lid = m.lidJid?.replace('@lid', '');
+    if (!phone || !lid) continue;
+
+    try {
+      // Cache it - this is what lets us resolve a brand-new inbound lid
+      // message to a real phone number, even before any lead exists.
+      await supabaseAdmin
+        .from('whatsapp_lid_mappings')
+        .upsert({ client_id: clientId, lid, phone, updated_at: new Date().toISOString() }, { onConflict: 'client_id,lid' });
+
+      // If a lead already exists under the real phone number (e.g. saved
+      // via Quick Send / Bulk Send with a name), link the lid onto it
+      // immediately so their name is never lost.
+      const { data: phoneLead } = await supabaseAdmin
+        .from('leads')
+        .select('id, whatsapp_lid')
+        .eq('client_id', clientId)
+        .eq('phone', phone)
+        .maybeSingle();
+
+      if (phoneLead && phoneLead.whatsapp_lid !== lid) {
+        await supabaseAdmin.from('leads').update({ whatsapp_lid: lid }).eq('id', phoneLead.id);
+      }
+    } catch (err) {
+      logger.error(`Failed to save lid mapping (${lid} -> ${phone}) for client ${clientId}:`, err.message);
+    }
+  }
+}
+
 export async function startSession(clientId, callbacks = {}) {
   clientCallbacks.set(clientId, callbacks);
 
@@ -220,6 +272,16 @@ export async function startSession(clientId, callbacks = {}) {
 
     for (const msg of messages) {
       try {
+        // History sync notification - capture phone<->lid mappings, then
+        // skip (not a real customer message).
+        const historySyncNotification = msg.message?.protocolMessage?.historySyncNotification;
+        if (historySyncNotification) {
+          captureLidMappingsFromHistorySync(clientId, historySyncNotification).catch((err) => {
+            logger.warn(`Failed to process history sync for lid mappings (client ${clientId}):`, err.message);
+          });
+          continue;
+        }
+
         if (msg.key.fromMe) continue; // ignore our own sent messages
         if (!msg.message) continue;
         if (msg.key.remoteJid === 'status@broadcast') continue; // ignore status updates

@@ -48,16 +48,62 @@ async function processMessage(clientId, fromNumber, text, jidType = 'phone') {
         .maybeSingle();
 
       lead = knownLidLead || null;
-      // NOTE: we deliberately do NOT try to "smart-guess" which existing
-      // phone-based lead this lid belongs to. An earlier version tried to
-      // auto-link a lid to "the one recent lead who hasn't replied yet",
-      // but that guess can be wrong - it would silently merge two
-      // completely different customers' conversations into a single
-      // thread. The only safe way to link a lid to a known phone number
-      // is the `chats.phoneNumberShare` event (see baileysProvider.js),
-      // which is WhatsApp explicitly confirming the mapping. Until that
-      // happens, a lid contact simply gets and keeps its own lead - a
-      // little less tidy, but conversations never get mixed up.
+
+      if (!lead) {
+        // Check WhatsApp's own phone<->lid mapping data (captured from
+        // history sync - see captureLidMappingsFromHistorySync in
+        // baileysProvider.js). This is real data from WhatsApp itself,
+        // not a guess, so it's safe to use as the primary identity -
+        // unlike an old approach that tried to guess based on "the one
+        // recent lead who hasn't replied yet" (which could silently
+        // merge two different customers' conversations together).
+        const { data: mapping } = await supabaseAdmin
+          .from('whatsapp_lid_mappings')
+          .select('phone')
+          .eq('client_id', clientId)
+          .eq('lid', fromNumber)
+          .maybeSingle();
+
+        if (mapping?.phone) {
+          const { data: phoneLead } = await supabaseAdmin
+            .from('leads')
+            .select('*')
+            .eq('client_id', clientId)
+            .eq('phone', mapping.phone)
+            .maybeSingle();
+
+          if (phoneLead) {
+            // Existing lead (possibly with a name already) - link the lid
+            // onto it so this and all future messages land here.
+            lead = phoneLead;
+            if (lead.whatsapp_lid !== fromNumber) {
+              await supabaseAdmin.from('leads').update({ whatsapp_lid: fromNumber }).eq('id', lead.id);
+              lead.whatsapp_lid = fromNumber;
+            }
+          } else {
+            // No lead yet under this phone number - create one using the
+            // REAL phone number as the primary identity, not the lid.
+            const { data: newLead, error } = await supabaseAdmin
+              .from('leads')
+              .insert({
+                client_id: clientId,
+                phone: mapping.phone,
+                whatsapp_lid: fromNumber,
+                source: 'inbound',
+                status: 'new',
+                jid_type: 'lid',
+              })
+              .select()
+              .single();
+            if (!error) lead = newLead;
+          }
+        }
+      }
+      // If we still don't have a lead at this point, WhatsApp hasn't
+      // given us a mapping for this lid yet (can happen for a truly
+      // brand-new contact before the next history sync). We fall back to
+      // a lid-keyed lead below, same as before - once a mapping does
+      // arrive, captureLidMappingsFromHistorySync links it automatically.
     } else {
       const { data: phoneLead } = await supabaseAdmin
         .from('leads')

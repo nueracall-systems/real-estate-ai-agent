@@ -21,7 +21,7 @@
 import { logger } from '../utils/logger.js';
 import { supabaseAdmin } from '../config/supabaseClient.js';
 
-const baileysNamespace = await import('@whiskeysockets/baileys');
+const baileysNamespace = await import('baileys');
 const baileysDefault = baileysNamespace.default ?? baileysNamespace;
 function pick(name) {
   return baileysNamespace[name] ?? baileysDefault?.[name];
