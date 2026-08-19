@@ -218,7 +218,7 @@ export async function generateReply(clientId, leadId, incomingText, conversation
       model: GROQ_MODEL,
       messages,
       temperature: 0.6,
-      max_tokens: 650,
+      max_tokens: 350,
     });
 
     const reply = completion.choices?.[0]?.message?.content?.trim();
