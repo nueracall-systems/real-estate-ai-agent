@@ -201,6 +201,23 @@ export function extractQuestion(replyText) {
  * messages of conversation history for context, plus the lead's
  * persistent memory summary (survives beyond the recent-messages window).
  */
+function cleanAIReply(text) {
+  if (!text) return '';
+
+  let cleaned = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<thinking>[\s\S]*?<\/thinking>/gi, '')
+    .trim();
+
+  // If the model starts a reasoning block but fails to close it,
+  // remove everything from the opening tag onward.
+  cleaned = cleaned
+    .replace(/<think>[\s\S]*$/i, '')
+    .replace(/<thinking>[\s\S]*$/i, '')
+    .trim();
+
+  return cleaned;
+}
 export async function generateReply(clientId, leadId, incomingText, conversationHistory = [], existingMemory = null) {
   try {
     const systemPrompt = await buildSystemPrompt(clientId, existingMemory);
@@ -221,7 +238,8 @@ export async function generateReply(clientId, leadId, incomingText, conversation
       max_tokens: 350,
     });
 
-    const reply = completion.choices?.[0]?.message?.content?.trim();
+    const rawReply = completion.choices?.[0]?.message?.content || '';
+    const reply = cleanAIReply(rawReply);
     if (reply) return { reply, usedFallback: false, errorMessage: null };
 
     logger.error(`Groq returned an empty reply for client ${clientId} (leadId ${leadId}). Full completion: ${JSON.stringify(completion)}`);
@@ -253,3 +271,5 @@ export function scoreLead(text, existingStatus = 'new') {
   if (warmKeywords.some((k) => lower.includes(k))) return existingStatus === 'hot' ? 'hot' : 'warm';
   return existingStatus === 'new' ? 'warm' : existingStatus;
 }
+
+
