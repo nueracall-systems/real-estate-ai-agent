@@ -235,7 +235,7 @@ export async function generateReply(clientId, leadId, incomingText, conversation
       model: GROQ_MODEL,
       messages,
       temperature: 0.6,
-      max_tokens: 350,
+      max_tokens: 1000,
     });
 
     const rawReply = completion.choices?.[0]?.message?.content || '';
@@ -271,5 +271,6 @@ export function scoreLead(text, existingStatus = 'new') {
   if (warmKeywords.some((k) => lower.includes(k))) return existingStatus === 'hot' ? 'hot' : 'warm';
   return existingStatus === 'new' ? 'warm' : existingStatus;
 }
+
 
 
