@@ -213,7 +213,18 @@ async function processMessage(clientId, fromNumber, text, jidType = 'phone') {
     // 6. Generate AI reply - pass the lead's persistent memory summary so
     // it never "forgets" facts learned earlier, even beyond the raw
     // history window or across a very long-running conversation.
-    const rawReply = await generateReply(clientId, lead.id, text, orderedHistory, lead.ai_memory);
+    const { reply: rawReply, usedFallback, errorMessage: aiErrorMessage } = await generateReply(
+      clientId,
+      lead.id,
+      text,
+      orderedHistory,
+      lead.ai_memory
+    );
+
+    if (usedFallback) {
+      logger.error(`AI fallback used for client ${clientId}, lead ${lead.id}. Reason: ${aiErrorMessage}`);
+      await alertClientOfAiFailure(clientId, aiErrorMessage);
+    }
 
     // AI may have confirmed a specific site-visit date/time - if so it
     // ends its reply with a hidden [[APPOINTMENT: ...]] tag. Strip that
@@ -351,4 +362,25 @@ async function processMessage(clientId, fromNumber, text, jidType = 'phone') {
 
 async function notifyClient(clientId, type, title, message) {
   await supabaseAdmin.from('notifications').insert({ client_id: clientId, type, title, message });
+}
+
+// Alert the client when the AI keeps falling back to the generic message
+// instead of a real reply (bad/missing Groq API key, quota exhausted,
+// wrong model name, etc). Rate-limited to once per 30 minutes per client
+// so a bad patch doesn't spam their notifications with the same alert on
+// every single incoming message.
+const lastAiFailureAlert = new Map(); // clientId -> timestamp
+const AI_FAILURE_ALERT_COOLDOWN_MS = 30 * 60 * 1000;
+
+async function alertClientOfAiFailure(clientId, errorMessage) {
+  const last = lastAiFailureAlert.get(clientId) || 0;
+  if (Date.now() - last < AI_FAILURE_ALERT_COOLDOWN_MS) return;
+  lastAiFailureAlert.set(clientId, Date.now());
+
+  await notifyClient(
+    clientId,
+    'ai_failure',
+    'AI Is Not Replying Properly',
+    `AI real replies nahi bhej pa raha, generic message ja raha hai. Reason: ${errorMessage || 'unknown error'}. Groq API key/quota check karein.`
+  );
 }

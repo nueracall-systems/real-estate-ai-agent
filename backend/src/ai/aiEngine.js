@@ -222,11 +222,20 @@ export async function generateReply(clientId, leadId, incomingText, conversation
     });
 
     const reply = completion.choices?.[0]?.message?.content?.trim();
-    return reply || FALLBACK_REPLY;
+    if (reply) return { reply, usedFallback: false, errorMessage: null };
+
+    logger.error(`Groq returned an empty reply for client ${clientId} (leadId ${leadId}). Full completion: ${JSON.stringify(completion)}`);
+    return { reply: FALLBACK_REPLY, usedFallback: true, errorMessage: 'Groq returned an empty response' };
   } catch (err) {
-    logger.error(`AI generateReply failed for client ${clientId}:`, err.message);
+    // Log EVERYTHING we can about the error - this is the #1 place people
+    // get stuck ("why is AI just sending a generic message") with no way
+    // to tell if it's a bad API key, hit the daily/rate limit, wrong
+    // model name, or a network issue. Groq SDK errors usually carry a
+    // `status` and `error` body with the real reason.
+    const details = err.status ? `status=${err.status} body=${JSON.stringify(err.error || err.response?.data || {})}` : '';
+    logger.error(`AI generateReply failed for client ${clientId} (leadId ${leadId}): ${err.message} ${details}`);
     // Rate limit hit or Groq down -> fallback so lead never gets silence
-    return FALLBACK_REPLY;
+    return { reply: FALLBACK_REPLY, usedFallback: true, errorMessage: `${err.message}${details ? ' | ' + details : ''}` };
   }
 }
 

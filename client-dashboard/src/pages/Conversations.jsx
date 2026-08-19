@@ -35,25 +35,46 @@ export default function Conversations() {
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const nameInputRef = useRef(null);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const selectedLeadIdRef = useRef(null);
 
   useEffect(() => {
     load();
+    const interval = setInterval(() => {
+      load(true); // silent refresh - no loading spinner flash
+      if (selectedLeadIdRef.current) refreshThread(selectedLeadIdRef.current);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  async function load() {
-    setLoading(true);
+  async function load(silent = false) {
+    if (!silent) setLoading(true);
     try {
       const res = await api.get('/conversations');
       setList(res.data.conversations || []);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
+  }
+
+  // Silently refreshes the currently-open thread without showing a
+  // loading state or disturbing the name-edit box if it's open.
+  async function refreshThread(leadId) {
+    try {
+      const res = await api.get(`/leads/${leadId}`);
+      setSelected((prev) => (prev && prev.lead?.id === leadId ? res.data : prev));
+      setLastUpdated(new Date());
+    } catch (err) {
+      // silent - don't disturb the UI over a background refresh failing
+    }
   }
 
   async function openThread(leadId) {
     setThreadLoading(true);
     setEditingName(false);
+    selectedLeadIdRef.current = leadId;
     try {
       const res = await api.get(`/leads/${leadId}`);
       setSelected(res.data);
@@ -93,7 +114,7 @@ export default function Conversations() {
 
   return (
     <Layout>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
         <h1 className="text-xl sm:text-2xl font-bold text-indigo-900">All Conversations</h1>
         <input
           value={search}
@@ -102,6 +123,10 @@ export default function Conversations() {
           className="border border-cream-200 rounded-lg px-3 py-2 text-sm w-full sm:w-72 focus:outline-none focus:ring-2 focus:ring-accent-500"
         />
       </div>
+      <p className="text-xs text-gray-400 mb-6 flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+        Live · Updated {lastUpdated.toLocaleTimeString('en-IN')}
+      </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: list of customers */}

@@ -12,17 +12,42 @@ export default function Leads() {
  const [sending, setSending] = useState(false);
  const [uploading, setUploading] = useState(false);
  const fileInputRef = useRef(null);
+ const [lastUpdated, setLastUpdated] = useState(new Date());
+ const selectedLeadIdRef = useRef(null);
 
  useEffect(() => {
  loadLeads();
  }, [filter]);
 
- async function loadLeads() {
+ useEffect(() => {
+ const interval = setInterval(() => {
+ loadLeads(true);
+ if (selectedLeadIdRef.current) refreshThread(selectedLeadIdRef.current);
+ }, 5000);
+ return () => clearInterval(interval);
+ }, [filter]);
+
+ async function loadLeads(silent = false) {
  const res = await api.get('/leads', { params: filter ? { status: filter } : {} });
  setLeads(res.data.leads || []);
+ if (silent) setLastUpdated(new Date());
+ }
+
+ async function refreshThread(leadId) {
+ try {
+ const res = await api.get(`/leads/${leadId}`);
+ if (selectedLeadIdRef.current === leadId) {
+ setSelectedLead(res.data.lead);
+ setConversations(res.data.conversations || []);
+ setLastUpdated(new Date());
+ }
+ } catch (err) {
+ // silent - don't disturb the UI over a background refresh failing
+ }
  }
 
  async function openLead(leadId) {
+ selectedLeadIdRef.current = leadId;
  const res = await api.get(`/leads/${leadId}`);
  setSelectedLead(res.data.lead);
  setConversations(res.data.conversations || []);
@@ -105,6 +130,11 @@ export default function Leads() {
  </button>
  </div>
  </div>
+
+ <p className="text-xs text-gray-400 mb-3 flex items-center gap-1.5">
+ <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+ Live · Updated {lastUpdated.toLocaleTimeString('en-IN')}
+ </p>
 
  <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
  {['', 'hot', 'warm', 'cold', 'new'].map((s) => (

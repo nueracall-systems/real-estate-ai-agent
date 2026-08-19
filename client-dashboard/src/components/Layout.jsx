@@ -8,6 +8,7 @@ export default function Layout({ children }) {
   const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [waStatus, setWaStatus] = useState(null); // 'connected' | 'reconnecting' | 'needs_reconnect' | 'disconnected' | null
+  const [aiFailureMsg, setAiFailureMsg] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,7 +18,11 @@ export default function Layout({ children }) {
   useEffect(() => {
     if (!authorized) return;
     checkWaStatus();
-    const interval = setInterval(checkWaStatus, 30000); // poll every 30s
+    checkAiFailure();
+    const interval = setInterval(() => {
+      checkWaStatus();
+      checkAiFailure();
+    }, 30000); // poll every 30s
     return () => clearInterval(interval);
   }, [authorized]);
 
@@ -25,6 +30,18 @@ export default function Layout({ children }) {
     try {
       const res = await api.get('/whatsapp/status');
       setWaStatus(res.data?.dbStatus?.whatsapp_status || (res.data?.connected ? 'connected' : 'disconnected'));
+    } catch (err) {
+      // don't let a status-check failure break the page
+    }
+  }
+
+  async function checkAiFailure() {
+    try {
+      const res = await api.get('/notifications');
+      const recent = (res.data?.notifications || []).find(
+        (n) => n.type === 'ai_failure' && Date.now() - new Date(n.created_at).getTime() < 60 * 60 * 1000
+      );
+      setAiFailureMsg(recent?.message || null);
     } catch (err) {
       // don't let a status-check failure break the page
     }
@@ -76,6 +93,11 @@ export default function Layout({ children }) {
                 Reconnect Now
               </button>
             )}
+          </div>
+        )}
+        {aiFailureMsg && (
+          <div className="px-6 py-2.5 text-sm font-medium bg-red-100 text-red-800">
+            ⚠ {aiFailureMsg}
           </div>
         )}
         <div className="p-4 sm:p-6">{children}</div>
